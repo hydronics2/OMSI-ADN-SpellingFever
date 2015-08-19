@@ -69,7 +69,8 @@ volatile int waitToSend = 0;  //this delay after a letter has been switched so i
 long previousMillis = 0;
 long timeSenseNewLetter = 0; //last instance a letter was stepped on
 
-
+long attractorTime = 0;
+int attractorModeFlag = 0;
 
 
 int var = 48;
@@ -78,6 +79,7 @@ boolean lights[32];  //lights, letters to be lit
 
 int buttonState = 0;
 
+unsigned long currentMillis = 0;
 
 void setup()
 {
@@ -115,7 +117,7 @@ void clearLights(){
 
 void loop()
 {
-unsigned long currentMillis = millis();
+currentMillis = millis();
 
 
   
@@ -134,8 +136,10 @@ if(waitToSend == 0) {  //sends previous bytes before gathering more
 
 if (switchVar1 != OLDswitchVar1 || switchVar2 != OLDswitchVar2 || switchVar3 != OLDswitchVar3 || switchVar4 != OLDswitchVar4)
 {
-   Serial.println("switched");
-
+   //Serial.println("switched");
+   
+   attractorModeFlag = 0;  //turns off attractor mode
+   
    //display_switch_values();
 
    determineButtonState();
@@ -171,11 +175,19 @@ memset(bytesToSend, 0, 14);} // clears the array
 delay(20); 
   
   
-if(rows[0] == 33){
+// --------------------------------------------------------------SHIFT OUT LIGHTS  
+if(rows[0] == 33 && attractorModeFlag == 0){
 maskRowsToLights(); //writes rows to 32 letters to be lit
 writeLights();  //lights letters
 }
 //serialPrintRowsLights();  //for debugging
+
+
+
+//----------------------------------------------------------------ATTRACTOR MODE initiation after 3 minutes
+if(currentMillis - timeSenseNewLetter > 180000){  //3 minutes has passed
+attractorModeFlag = 1;  //flag to turn off write SAFE lights during attractor mode
+attractorMode();}
 
 }
 //-----------------------------------------------END OF LOOP
@@ -386,3 +398,15 @@ void display_switch_values()
 //------------------------------------------------end print loop
 
 
+//--------------------------------------------ATTRACTOR MODE
+
+void attractorMode(){
+ if(currentMillis - attractorTime > 100){
+  memset(lights, 0, 32); // clears the array
+  int j = random(0, 32);
+  lights[j] = 1;  
+  writeLights();  //lights letter
+  attractorTime = currentMillis; }
+}
+  
+  

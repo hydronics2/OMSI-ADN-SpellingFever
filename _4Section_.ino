@@ -80,11 +80,12 @@ boolean lights[32];  //lights, letters to be lit
 int buttonState = 0;
 
 
+
 void setup()
 {
   Wire.begin(4);                // join i2c bus with address #4
     TWBR = 152;  //set wire bus speed at 50khz
-  Wire.onReceive(receiveEvent); // register event
+  //Wire.onReceive(receiveEvent); // register event
   Wire.onRequest(requestEvent);  //sends Master buttons pressed
   Serial.begin(9600);           // start serial for output
 
@@ -156,8 +157,12 @@ if (switchVar1 != OLDswitchVar1 )
    buttonState = 0;
    
    
-   rows[13] = 255;  //turns ON Finish row lights
- 
+   lights[0] = 1;  //turns ON Finish row lights
+   lights[1] = 1;
+   lights[2] = 1;
+   lights[3] = 1;
+   lights[4] = 1;
+   lights[5] = 1;
  }
    
 }
@@ -166,15 +171,23 @@ if (switchVar1 != OLDswitchVar1 )
 //--------------------------------------------------------------CLEAR OLD ARRAY
 if(currentMillis - timeSenseNewLetter > 3500){  //if 3.5 seconds has gone by sense a new letter has been stepped on, set the array to zero
 memset(bytesToSend, 0, 14); // clears the array
-rows[13] = 0;} //turns OFF Finish row lights  
+   lights[0] = 0;  //turns ON Finish row lights
+   lights[1] = 0;
+   lights[2] = 0;
+   lights[3] = 0;
+   lights[4] = 0;
+   lights[5] = 0;
+//Serial.println("currentMillis - timeSenseNewLetter > 3500");
+} //turns OFF Finish row lights  
   
 //delay so all these print satements can keep up. 
 delay(20); 
   
   
-maskRowsToLights(); //writes rows to 32 letters to be lit
+//maskRowsToLights(); //writes rows to 32 letters to be lit
 writeLights();  //lights letters
-
+if(bytesToSend[13] > 0){
+  Serial.println(bytesToSend[13]);}
 //serialPrintRowsLights();  //for debugging
 
 }
@@ -183,21 +196,22 @@ writeLights();  //lights letters
 
 //------------------------------------------------ GET Rows from Master
 
-void receiveEvent(int howMany)  //executes when Master sends rows (letters to be lit)
-{
-  if(Wire.available()) 
-  {
-   
-      rows[13]=Wire.read(); 
-   //Serial.println("received  row 13 from master");
-    }
-}
+//void receiveEvent(int howMany)  //executes when Master sends rows (letters to be lit)
+//{
+//  if(Wire.available()) 
+//  {
+//   
+//      rows[13]=Wire.read(); 
+//   //Serial.println("received  row 13 from master");
+//    }
+//}
 
 
 //------------------------------------------------ SEND Rows to Master
 
 void requestEvent()  //sends switch stepped on to Master when requested from Master
 {
+  
   Wire.write(bytesToSend, 14); 
   waitToSend = 0; //resets 'wait till sent' delay
 //Serial.println(bytesToSend[0]);
@@ -206,21 +220,23 @@ void requestEvent()  //sends switch stepped on to Master when requested from Mas
 //Serial.println(bytesToSend[3]);
 //Serial.println(bytesToSend[4]);
 
+
 }
 
 
 //-----------------------------------------------------SHIFT OUT
 
-void maskRowsToLights(){  //masks the 4 rows of bytes to 32 bits (lights)
-int j = 0;
-
-for(mask = 00000001; mask > 0; mask <<=1){
-  if(rows[13] & mask){  //if bitwise AND resolves to true
-  lights[j] = 1;}
-  else{
-    lights[j] = 0;}
-    j++;
-}}
+//void maskRowsToLights(){  //masks the 4 rows of bytes to 32 bits (lights)
+//int j = 0;
+//
+//for(mask = 00000001; mask > 0; mask <<=1){
+//  if(rows[13] & mask){  //if bitwise AND resolves to true
+//  lights[j] = 1;
+//Serial.println(j); }
+//  else{
+//    lights[j] = 0;}
+//    j++;
+//}}
 
 //Only call AFTER all values are set how you would like (slow otherwise)
 

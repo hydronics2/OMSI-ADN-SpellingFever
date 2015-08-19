@@ -19,6 +19,7 @@
 
 
 //   1/31/2015 - after 3.5 seconds, the arrays go to zero
+//  2/18/2015 - added attractor scene
 
 #include <Wire.h>
 
@@ -69,6 +70,8 @@ volatile int waitToSend = 0;  //this delay after a letter has been switched so i
 long previousMillis = 0;
 long timeSenseNewLetter = 0; //last instance a letter was stepped on
 
+long attractorTime = 0;
+int attractorModeFlag = 1;
 
 
 
@@ -78,10 +81,11 @@ boolean lights[32];  //lights, letters to be lit
 
 int buttonState = 0;
 
+unsigned long currentMillis = 0;
 
 void setup()
 {
-  Wire.begin(1);                // join i2c bus with address #1
+  Wire.begin(4);                // join i2c bus with address #1
     TWBR = 152;  //set wire bus speed at 50khz
   Wire.onReceive(receiveEvent); // register event
   Wire.onRequest(requestEvent);  //sends Master buttons pressed
@@ -115,9 +119,9 @@ void clearLights(){
 
 void loop()
 {
-unsigned long currentMillis = millis();
+currentMillis = millis();
 
-
+//-------------------------------------- SHIFT IN BUTTON STATES
   
 if(waitToSend == 0) {  //sends previous bytes before gathering more
   
@@ -132,11 +136,14 @@ if(waitToSend == 0) {  //sends previous bytes before gathering more
 }
 
 
+//----------------------------------------NEW BUTTON triggered
+
 if (switchVar1 != OLDswitchVar1 || switchVar2 != OLDswitchVar2 || switchVar3 != OLDswitchVar3 || switchVar4 != OLDswitchVar4)
 {
-   Serial.println("switched");
-
-   //display_switch_values();
+   //Serial.println("switched");
+  
+   attractorModeFlag = 0;  //turns off attractor mode
+    //display_switch_values();
 
    determineButtonState();
     
@@ -146,7 +153,7 @@ if (switchVar1 != OLDswitchVar1 || switchVar2 != OLDswitchVar2 || switchVar3 != 
    OLDswitchVar4 = switchVar4;
     
    if(buttonState == 1){      //only send to Master if button state is HIGH (letter has been stepped on).... this just decreases to i2c traffic
-   Serial.println("button state is 1");
+   //Serial.println("button state is 1");
    memset(bytesToSend, 0, 14); // clears the array
    bytesToSend[0] = 33;
    bytesToSend[1] = switchVar1;
@@ -158,7 +165,7 @@ if (switchVar1 != OLDswitchVar1 || switchVar2 != OLDswitchVar2 || switchVar3 != 
    waitToSend = 1; //sets 'Wait to send' flag before accumulating more data
    buttonState = 0;
    }
-   
+
 }
 
 
@@ -170,12 +177,19 @@ memset(bytesToSend, 0, 14);} // clears the array
 //delay so all these print satements can keep up. 
 delay(20); 
   
-  
-if(rows[0] == 33){
+// --------------------------------------------------------------SHIFT OUT LIGHTS  
+if(rows[0] == 33 && attractorModeFlag == 0){
 maskRowsToLights(); //writes rows to 32 letters to be lit
 writeLights();  //lights letters
 }
 //serialPrintRowsLights();  //for debugging
+
+
+
+//----------------------------------------------------------------ATTRACTOR MODE initiation after 3 minutes
+if(currentMillis - timeSenseNewLetter > 180000){  //3 minutes has passed
+attractorModeFlag = 1;  //flag to turn off write SAFE lights during attractor mode
+attractorMode();}
 
 }
 //-----------------------------------------------END OF LOOP
@@ -190,7 +204,7 @@ void receiveEvent(int howMany)  //executes when Master sends rows (letters to be
     for(int i=0;i<5;i++){          //read 4 bytes - rows 1-4
       rows[i]=Wire.read(); 
     }
-//Serial.println("received 4 rows from master");
+Serial.println("received 4 rows from master");
     }
 }
 
@@ -201,11 +215,11 @@ void requestEvent()  //sends switch stepped on to Master when requested from Mas
 {
   Wire.write(bytesToSend, 14); 
   waitToSend = 0; //resets 'wait till sent' delay
-//Serial.println(bytesToSend[0]);
-//Serial.println(bytesToSend[1]);
-//Serial.println(bytesToSend[2]);
-//Serial.println(bytesToSend[3]);
-//Serial.println(bytesToSend[4]);
+Serial.println(bytesToSend[0]);
+Serial.println(bytesToSend[1]);
+Serial.println(bytesToSend[2]);
+Serial.println(bytesToSend[3]);
+Serial.println(bytesToSend[4]);
 
 }
 
@@ -384,5 +398,19 @@ void display_switch_values()
       
      }
 //------------------------------------------------end print loop
+
+
+//--------------------------------------------ATTRACTOR MODE
+
+void attractorMode(){
+ if(currentMillis - attractorTime > 100){
+  memset(lights, 0, 32); // clears the array
+  int j = random(0, 32);
+  lights[j] = 1;  
+  writeLights();  //lights letter
+  attractorTime = currentMillis; }
+}
+  
+  
 
 

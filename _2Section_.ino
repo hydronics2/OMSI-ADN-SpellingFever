@@ -19,7 +19,9 @@
 
 //   1/30/2015 - took out the 'C'         if(j == 29){buttonState = 0;}
 //   1/31/2015 - after 3.5 seconds, the arrays go to zero
-//   
+//   2/18/2015 - changed out 4th shift register on 2nd Section to fix number 29 'C' triggering on
+//   2/18/2015 - added attractor scene
+//  2/20/2015 - added debounce to take care of noise turning on 'C'
 
 #include <Wire.h>
 
@@ -55,12 +57,6 @@ byte switchVar4;
 byte OLDswitchVar4;
 
 
-
-byte serial_byte1[14]={33, 32,0,0,0,0,0,0,0,0,0,0,0,0};  //S
-byte serial_byte2[14]={33, 0,32,0,0,0,0,0,0,0,0,0,0,0};  // E
-byte serial_byte3[14]={33, 0,0,32,0,0,0,0,0,0,0,0,0,0}; // D
-byte serial_byte4[14]={33, 0,0,0,64,0,0,0,0,0,0,0,0,0}; // C
-
 byte bytesToSend[14] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 volatile byte rows[5];
@@ -70,7 +66,8 @@ volatile int waitToSend = 0;  //this delay after a letter has been switched so i
 long previousMillis = 0;
 long timeSenseNewLetter = 0; //last instance a letter was stepped on
 
-
+long attractorTime = 0;
+int attractorModeFlag = 1;
 
 
 int var = 48;
@@ -79,6 +76,9 @@ boolean lights[32];  //lights, letters to be lit
 
 int buttonState = 0;
 
+unsigned long currentMillis = 0;
+
+long lastDebounceTime = 0;  //added because there is noise triggering the letter 'C'
 
 void setup()
 {
@@ -116,7 +116,7 @@ void clearLights(){
 
 void loop()
 {
-unsigned long currentMillis = millis();
+currentMillis = millis();
 
 
   
@@ -133,10 +133,30 @@ if(waitToSend == 0) {  //sends previous bytes before gathering more
 }
 
 
-if (switchVar1 != OLDswitchVar1 || switchVar2 != OLDswitchVar2 || switchVar3 != OLDswitchVar3 || switchVar4 != OLDswitchVar4)
+if (switchVar1 != OLDswitchVar1){
+    OLDswitchVar1 = switchVar1;
+    lastDebounceTime = currentMillis;}
+    
+    
+if (switchVar2 != OLDswitchVar2){
+    OLDswitchVar2 = switchVar2;
+    lastDebounceTime = currentMillis;}
+    
+if (switchVar3 != OLDswitchVar3){
+    OLDswitchVar3 = switchVar3;
+    lastDebounceTime = currentMillis;}
+    
+if (switchVar4 != OLDswitchVar4){
+    OLDswitchVar4 = switchVar4;
+    lastDebounceTime = currentMillis;}
+    
+             
+ 
+ 
+ if((currentMillis - lastDebounceTime) > 150)  //someone has been stepping on the button for 100ms 
 {
-   Serial.println("switched");
-
+   //Serial.println("current stat is longer than 150ms");
+   
    //display_switch_values();
 
    determineButtonState();
@@ -145,9 +165,15 @@ if (switchVar1 != OLDswitchVar1 || switchVar2 != OLDswitchVar2 || switchVar3 != 
    OLDswitchVar2 = switchVar2;
    OLDswitchVar3 = switchVar3;
    OLDswitchVar4 = switchVar4;
-    
+   
+   lastDebounceTime = currentMillis;
+   
+   
    if(buttonState == 1){      //only send to Master if button state is HIGH (letter has been stepped on).... this just decreases to i2c traffic
-   Serial.println("button state is 1");
+   
+   attractorModeFlag = 0;  //turns off attractor mode  
+   
+   //Serial.println("button state is 1");
    memset(bytesToSend, 0, 14); // clears the array
    bytesToSend[0] = 33;
    bytesToSend[5] = switchVar1;
@@ -171,16 +197,22 @@ memset(bytesToSend, 0, 14);} // clears the array
 //delay so all these print satements can keep up. 
 delay(20); 
   
-  
-if(rows[0] == 33){
+ // --------------------------------------------------------------SHIFT OUT LIGHTS  
+if(rows[0] == 33 && attractorModeFlag == 0){
 maskRowsToLights(); //writes rows to 32 letters to be lit
 writeLights();  //lights letters
 }
 //serialPrintRowsLights();  //for debugging
 
+
+
+//----------------------------------------------------------------ATTRACTOR MODE initiation after 3 minutes
+if(currentMillis - timeSenseNewLetter > 180000){  //3 minutes has passed
+attractorModeFlag = 1;  //flag to turn off write SAFE lights during attractor mode
+attractorMode();}
+
 }
 //-----------------------------------------------END OF LOOP
-
 
 //------------------------------------------------ GET Rows from Master
 
@@ -331,8 +363,6 @@ void determineButtonState()  //determines if the change-of-state is high or low
        if((switchVar4 >> i) & 1) {
             //Serial.println(j);
             buttonState = 1;
-            if(j == 29){
-             buttonState = 0;}
             registers[j] = 1; }   //writes register array values (24-31) based on button state
         else {
             registers[j] = 0; }   //writes register array values (24-31) based on button state
@@ -388,4 +418,19 @@ void display_switch_values()
      }
 //------------------------------------------------end print loop
 
+
+
+//--------------------------------------------ATTRACTOR MODE
+
+void attractorMode(){
+ if(currentMillis - attractorTime > 100){
+  memset(lights, 0, 32); // clears the array
+  int j = random(0, 32);
+  lights[j] = 1;  
+  writeLights();  //lights letter
+  attractorTime = currentMillis; }
+}
+  
+  
+  
 
