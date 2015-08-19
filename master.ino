@@ -2,14 +2,15 @@
 
 
 
-//    2/1/2015 - turned OFF master transmitting to Slave 4
-//    2/1/2015 - ignore sending as 255 for rows 1,5,6,7,8,9... (it just looks buggy when they show up)
-//    8/5/2015 - consider sending new data to slaves every 150ms (immediately after reading from PC)...... then perhaps requsting data from slaves
+//   2/1/2015 - turned OFF master transmitting to Slave 4
+//   2/1/2015 - ignore sending as 255 for rows 1,5,6,7,8,9... (it just looks buggy when they show up)
+//   8/5/2015 - consider sending new data to slaves every 150ms (immediately after reading from PC)...... then perhaps requsting data from slaves
+//   8/14/2015 - tried out some code with a relay to cycle power to the slave devices.
+//   8/18/2015 - using the WSWire library: https://github.com/steamfire/WSWireLib
 
 
 
-
-#include <Wire.h>
+#include <WSWire.h>
 
 const int slavePowerRelay = 13;
 
@@ -53,13 +54,13 @@ int readingSerial = 0;
 int readSerial = 0;
 int numberFaults = 0;
 int printReport = 0;  //prints faults report to Serial1
+int communicationErrors = 0;  //keeps track of the errors communicating with the slave devices
 
 void setup() {
 Serial.begin(9600);
 Serial1.begin(9600);
 Wire.begin(); 
 TWBR = 152;      
-
 
 }
 
@@ -162,7 +163,7 @@ printReport = 1;
 if(currentMillis - previousMillisSent > intervalSend && newMatrixFromPc == 1 && readingSerial == 0) { //if the time period has elapsed AND new data is available AND we're not sending data serial, send to slaves
  previousMillisSent = currentMillis;  //restart the clock
  newMatrixFromPc = 0;  //dont retransmit unless new data has arrived
- Serial1.println("sending data to slaves");
+ //Serial1.println("sending data to slaves");
 
   if(rows[1] != 255){        //don't turn them all on after a Finish
   Wire.beginTransmission(1); // transmit to device #1 
@@ -172,11 +173,11 @@ if(currentMillis - previousMillisSent > intervalSend && newMatrixFromPc == 1 && 
   Wire.write(rows[3]);
   Wire.write(rows[4]);
   if (Wire.endTransmission () == 0) {
-        Serial1.println("master sent x to Slave 1");
+        //Serial1.println("master sent x to Slave 1");
   }
       else {
-         Serial1.println("master did not send to Slave 1");
-
+         //Serial1.println("master did not send to Slave 1");
+         
       }
   }
   delay (10);
@@ -189,11 +190,11 @@ if(currentMillis - previousMillisSent > intervalSend && newMatrixFromPc == 1 && 
   Wire.write(rows[7]);
   Wire.write(rows[8]);
   if (Wire.endTransmission () == 0){
-         Serial1.println("master sent x to Slave 2"); 
+         //Serial1.println("master sent x to Slave 2"); 
   }
       else {
-        Serial1.println("master did not send to Slave 2");
-
+        //Serial1.println("master did not send to Slave 2");
+        
       }
   }
   
@@ -207,11 +208,11 @@ if(currentMillis - previousMillisSent > intervalSend && newMatrixFromPc == 1 && 
   Wire.write(rows[11]);
   Wire.write(rows[12]);
   if (Wire.endTransmission () == 0) {
-        Serial1.println("master sent x to Slave 3"); 
+        //Serial1.println("master sent x to Slave 3"); 
   }
       else {
-   Serial1.println("master did not send to Slave 3");
-
+   //Serial1.println("master did not send to Slave 3");
+   
       }
   }
         delay (10);
@@ -236,7 +237,7 @@ if(currentMillis - previousMillisSent > intervalSend && newMatrixFromPc == 1 && 
 
 if(currentMillis - previousMillisRequest > intervalRequest && readingSerial == 0) { //if the time period has elapsed request data from slaves
  previousMillisRequest = currentMillis;  //restart the clock
-
+//Serial1.println("entering reading mode");
 /*-------------------------------------REQUEST FROM SLAVE 1 */
   if(Wire.requestFrom(1, 14) == 14) {    // request letter from Slave(1) consisting 14 bytes 
     for(int i=0; i<14; i++){
@@ -248,13 +249,13 @@ if(currentMillis - previousMillisRequest > intervalRequest && readingSerial == 0
   if(pressed1[1] != pressedLast1[1] || pressed1[2] != pressedLast1[2] || pressed1[3] != pressedLast1[3] || pressed1[4] != pressedLast1[4]){
     memcpy(pressed, pressed1, 14 );           //copies to pressed array to be sent to PC
     memcpy(pressedLast1, pressed1, 14 );      //copies last pressed to pressed One
-   Serial1.println("master received unique packet from Slave 1");
+   //Serial1.println("master received unique packet from Slave 1");
 
     }
     }  
 
    else {
-      Serial1.println("does not recieve data from slave 1"); 
+      //Serial1.println("does not recieve data from slave 1"); 
         }
   
   delay(10);
@@ -269,12 +270,12 @@ if(currentMillis - previousMillisRequest > intervalRequest && readingSerial == 0
   if(pressed2[5] != pressedLast2[5] || pressed2[6] != pressedLast2[6] || pressed2[7] != pressedLast2[7] || pressed2[8] != pressedLast2[8]){
     memcpy( pressed, pressed2, 14 );
     memcpy( pressedLast2, pressed2, 14 );
-   Serial1.println("master received unique packet from Slave 2");
+   //Serial1.println("master received unique packet from Slave 2");
     
   }
   }
      else {
-     Serial1.println("does not recieve data from slave 2"); 
+     //Serial1.println("does not recieve data from slave 2"); 
           }
   
   delay(10);
@@ -289,12 +290,12 @@ if(currentMillis - previousMillisRequest > intervalRequest && readingSerial == 0
   if(pressed3[9] != pressedLast3[9] || pressed3[10] != pressedLast3[10] || pressed3[11] != pressedLast3[11] || pressed3[12] != pressedLast3[12]){
     memcpy( pressed, pressed3, 14 );
     memcpy( pressedLast3, pressed3, 14 );
-    Serial1.println("master received unique packet from Slave 3");
+    //Serial1.println("master received unique packet from Slave 3");
    
   }
   }
      else {
-     Serial1.println("does not recieve data from slave 3"); 
+     //Serial1.println("does not recieve data from slave 3"); 
           }
   delay(10);
   
@@ -302,21 +303,23 @@ if(currentMillis - previousMillisRequest > intervalRequest && readingSerial == 0
   if(Wire.requestFrom(4, 14) == 14) {    // request letter from Slave(4), SECTION 4 consisting 14 bytes 
   for(int i=0; i<14; i++){
   pressed4[i] = Wire.read(); 
-
   //Serial1.println(pressed4[i]); 
   }
+  
+  //Serial1.print("received x from 4: ");
+  //Serial1.println(pressed4[1]);
+  
   if(pressed4[13] != pressedLast4[13]){
     pressed[13] = pressed4[13];
-    Serial1.print("got new row 13 finish line!!!!!!!!!!!!!!!!!!!!!!!!1");
+    //Serial1.print("got row 13 finish line!!!!!!!!!!!!!!!!!!!!!!!!");
     memcpy( pressed, pressed4, 14 );
     memcpy( pressedLast4, pressed4, 14 );
-   Serial1.println("master received unique packet from Slave 4");
+   //Serial1.println("master received unique packet from Slave 4");
   
   }
   }
      else {
-     Serial1.println("does not recieve data from slave 4"); 
-
+     //Serial1.println("does not recieve data from slave 4"); 
           }
   delay(10);
 }
